@@ -1,0 +1,114 @@
+/*
+ * Nomor 1: Total Transaksi Bulanan di Tahun 2021
+ * Query ini menghitung total transaksi yang valid (is_valid = 1) untuk setiap bulan di tahun 2021, kemudian mengurutkannya dari total transaksi terbesar ke terkecil.
+ */
+SELECT
+    EXTRACT(MONTH FROM order_date) AS month_2021,
+    SUM(after_discount) AS total_transaction
+FROM order_detail
+WHERE is_valid = 1
+    AND EXTRACT(YEAR FROM order_date) = 2021
+GROUP BY 1
+ORDER BY 2 DESC;
+
+-- =========================================================
+
+/*
+ * Nomor 2: Total Transaksi per Kategori di Tahun 2022
+ * Query ini menghitung total transaksi yang valid (is_valid = 1) untuk setiap kategori produk di tahun 2022, kemudian mengurutkan hasilnya dari total transaksi terbesar ke terkecil.
+ */
+SELECT
+    sku_detail.category,
+    SUM(order_detail.after_discount) AS total_transaction
+FROM order_detail
+INNER JOIN sku_detail
+    ON order_detail.sku_id = sku_detail.id
+WHERE order_detail.is_valid = 1
+    AND EXTRACT(YEAR FROM order_detail.order_date) = 2022
+GROUP BY 1
+ORDER BY 2 DESC;
+
+-- =========================================================
+
+/*
+ * Nomor 3: Perbandingan Total Transaksi Antar Kategori Tahun 2021 dan 2022
+ * Query ini membandingkan total transaksi per kategori produk antara tahun 2021 dan 2022, lalu memberikan status ('Naik', 'Turun', atau 'Sama atau tidak diketahui') untuk menunjukkan perubahan performa penjualan dari setiap kategori.
+ */
+WITH year_2021 AS (
+    SELECT
+        sku_detail.category,
+        SUM(order_detail.after_discount) AS total_transaction_2021
+    FROM order_detail
+    INNER JOIN sku_detail
+        ON order_detail.sku_id = sku_detail.id
+    WHERE order_detail.is_valid = 1
+        AND EXTRACT(YEAR FROM order_detail.order_date) = 2021
+    GROUP BY 1
+), year_2022 AS (
+    SELECT
+        sku_detail.category,
+        SUM(order_detail.after_discount) AS total_transaction_2022
+    FROM order_detail
+    INNER JOIN sku_detail
+        ON order_detail.sku_id = sku_detail.id
+    WHERE order_detail.is_valid = 1
+        AND EXTRACT(YEAR FROM order_detail.order_date) = 2022
+    GROUP BY 1
+)
+SELECT
+    year_2021.category,
+    year_2021.total_transaction_2021,
+    year_2022.total_transaction_2022,
+    CASE
+        WHEN year_2021.total_transaction_2021 > year_2022.total_transaction_2022 THEN 'Naik'
+        WHEN year_2021.total_transaction_2021 < year_2022.total_transaction_2022 THEN 'Turun'
+        ELSE 'Sama atau tidak diketahui'
+    END AS category_status
+FROM year_2021
+JOIN year_2022
+    ON year_2021.category = year_2022.category;
+
+-- =========================================================
+
+/*
+ * Nomor 4: Top 5 Metode Pembayaran Terpopuler Tahun 2022
+ * Query ini menghitung 5 metode pembayaran yang paling sering digunakan (berdasarkan jumlah pesanan unik yang valid) selama tahun 2022.
+ */
+SELECT
+    payment_detail.payment_method,
+    COUNT(DISTINCT order_detail.id) AS unique_order
+FROM order_detail
+LEFT JOIN payment_detail
+    ON order_detail.payment_id = payment_detail.id
+WHERE order_detail.is_valid = 1
+    AND EXTRACT(YEAR FROM order_detail.order_date) = 2022
+GROUP BY 1
+ORDER BY 2 DESC
+LIMIT 5;
+
+-- =========================================================
+
+/*
+ * Nomor 5: Total Transaksi Berdasarkan Merek Produk
+ * Query ini mengelompokkan transaksi yang valid berdasarkan merek produk (Samsung, Apple, Sony, Huawei, Lenovo, atau Others) dengan mencari nama merek dalam kolom sku_name, kemudian menghitung total transaksi untuk setiap merek dan menampilkannya.
+ */
+WITH transaction_table AS (
+    SELECT
+        CASE
+            WHEN lower(sku_detail.sku_name) LIKE '%samsung%' THEN 'Samsung'
+            WHEN lower(sku_detail.sku_name) LIKE '%apple%' THEN 'Apple'
+            WHEN lower(sku_detail.sku_name) LIKE '%sony%' THEN 'Sony'
+            WHEN lower(sku_detail.sku_name) LIKE '%huawei%' THEN 'Huawei'
+            WHEN lower(sku_detail.sku_name) LIKE '%lenovo%' THEN 'Lenovo'
+            ELSE 'Others'
+        END AS product_brand,
+        SUM(order_detail.after_discount) AS total_transaction
+    FROM order_detail
+    LEFT JOIN sku_detail
+        ON order_detail.sku_id = sku_detail.id
+    WHERE is_valid = 1
+    GROUP BY 1
+    ORDER BY 2 DESC
+)
+SELECT *
+FROM transaction_table;
